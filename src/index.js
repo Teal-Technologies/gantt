@@ -337,26 +337,43 @@ export default class Gantt {
 
         let row_y = this.options.header_height + this.options.padding / 2;
 
-        for (let task of this.tasks) {
+        // FIXME: implement objective/initiative logic
+        let row_count = 0;
+
+        const create_row = custom_row_height => {
             createSVG('rect', {
                 x: 0,
                 y: row_y,
                 width: row_width,
-                height: row_height,
+                height: custom_row_height,
                 class: 'grid-row',
                 append_to: rows_layer
             });
 
             createSVG('line', {
                 x1: 0,
-                y1: row_y + row_height,
+                y1: row_y + custom_row_height,
                 x2: row_width,
-                y2: row_y + row_height,
+                y2: row_y + custom_row_height,
                 class: 'row-line',
                 append_to: lines_layer
             });
 
-            row_y += this.options.bar_height + this.options.padding;
+            row_y += custom_row_height;
+        };
+
+        for (let task of this.tasks) {
+            if (task.type === 'objective') {
+                if (row_count) {
+                    create_row(row_height * row_count);
+                }
+                row_count = 1;
+            } else {
+                row_count += 1;
+            }
+        }
+        if (row_count > 1) {
+            create_row(row_height * row_count);
         }
     }
 
