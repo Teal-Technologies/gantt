@@ -92,13 +92,13 @@ $.off = (element, event, handler) => {
 };
 
 $.bind = (element, event, callback) => {
-    event.split(/\s+/).forEach(function(event) {
+    event.split(/\s+/).forEach(function (event) {
         element.addEventListener(event, callback);
     });
 };
 
 $.delegate = (element, event, selector, callback) => {
-    element.addEventListener(event, function(e) {
+    element.addEventListener(event, function (e) {
         const delegatedTarget = e.target.closest(selector);
         if (delegatedTarget) {
             e.delegatedTarget = delegatedTarget;
@@ -108,7 +108,7 @@ $.delegate = (element, event, selector, callback) => {
 };
 
 $.closest = (selector, element) => {
-    if (!element) return null;
+    if (!element || !element.matches) return null;
 
     if (element.matches(selector)) {
         return element;

@@ -5,6 +5,7 @@ import Arrow from './arrow';
 import Popup from './popup';
 
 import './gantt.scss';
+import GhostBar from './new_bar';
 
 export default class Gantt {
     constructor(wrapper, tasks, options) {
@@ -33,7 +34,7 @@ export default class Gantt {
         } else {
             throw new TypeError(
                 'Frappé Gantt only supports usage of a string CSS selector,' +
-                    " HTML DOM element or SVG DOM element for the 'element' parameter"
+                " HTML DOM element or SVG DOM element for the 'element' parameter"
             );
         }
 
@@ -61,6 +62,11 @@ export default class Gantt {
         this.popup_wrapper = document.createElement('div');
         this.popup_wrapper.classList.add('popup-wrapper');
         this.$container.appendChild(this.popup_wrapper);
+
+        // add/move wrapper
+        this.ghost_wrapper = document.createElement('div');
+        this.ghost_wrapper.classList.add('popup-wrapper');
+        this.$container.appendChild(this.ghost_wrapper);
     }
 
     setup_options(options) {
@@ -305,7 +311,7 @@ export default class Gantt {
             this.options.header_height +
             this.options.padding +
             (this.options.bar_height + this.options.padding) *
-                this.tasks.length;
+            this.tasks.length;
 
         createSVG('rect', {
             x: 0,
@@ -422,7 +428,7 @@ export default class Gantt {
             const width = this.options.column_width;
             const height =
                 (this.options.bar_height + this.options.padding) *
-                    this.tasks.length +
+                this.tasks.length +
                 this.options.header_height +
                 this.options.padding / 2;
 
@@ -508,8 +514,8 @@ export default class Gantt {
             'Half Day_upper':
                 date.getDate() !== last_date.getDate()
                     ? date.getMonth() !== last_date.getMonth()
-                      ? date_utils.format(date, 'D MMM', this.options.language)
-                      : date_utils.format(date, 'D', this.options.language)
+                        ? date_utils.format(date, 'D MMM', this.options.language)
+                        : date_utils.format(date, 'D', this.options.language)
                     : '',
             Day_upper:
                 date.getMonth() !== last_date.getMonth()
@@ -622,8 +628,8 @@ export default class Gantt {
 
         const scroll_pos =
             hours_before_first_task /
-                this.options.step *
-                this.options.column_width -
+            this.options.step *
+            this.options.column_width -
             this.options.column_width;
 
         parent_element.scrollLeft = scroll_pos;
@@ -742,6 +748,71 @@ export default class Gantt {
         });
 
         this.bind_bar_progress();
+        this.bind_bar_add();
+    }
+
+    bind_bar_add() {
+        let is_adding_new = false;
+        let x_on_start = 0;
+        let y_on_start = 0;
+
+        const add_complete = e => {
+            const dx = e.offsetX - x_on_start;
+            if (is_adding_new) {
+                is_adding_new = false;
+                if (this.newBar) {
+                    this.newBar.hide();
+                }
+
+                const {
+                    start_date: new_start_date,
+                    end_date: new_end_date
+                } = date_utils.compute_date_range(x_on_start, dx, this);
+
+                this.trigger_event('new_task', [
+                    new_start_date,
+                    date_utils.add(new_end_date, -1, 'second')
+                ]);
+            }
+        };
+
+        const add_start = e => {
+            is_adding_new = true;
+            x_on_start = e.offsetX;
+            y_on_start = e.offsetY;
+
+            if (!this.newBar) {
+                this.newBar = new GhostBar(this.ghost_wrapper);
+            }
+            this.newBar.show({
+                x: x_on_start,
+                y: y_on_start,
+                width: 10,
+                height: 10
+            });
+        };
+
+        $.on(this.$svg, 'mousedown', '.grid-row', (e, element) => {
+            if (is_adding_new) {
+                add_complete(e);
+            } else {
+                add_start(e);
+            }
+        });
+
+        $.on(this.$svg, 'mousemove', e => {
+            if (!is_adding_new) return;
+            const dx = e.offsetX - x_on_start;
+            const dy = e.offsetY - y_on_start;
+            this.newBar.setPosition({
+                width: dx,
+                height: 10
+            });
+        });
+
+        $.on(this.$svg, 'mouseup', e => {
+            add_complete(e);
+        });
     }
 
     bind_bar_progress() {

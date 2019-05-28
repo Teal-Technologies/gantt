@@ -32,8 +32,8 @@ export default class Bar {
         this.width = this.gantt.options.column_width * this.duration;
         this.progress_width =
             this.gantt.options.column_width *
-                this.duration *
-                (this.task.progress / 100) || 0;
+            this.duration *
+            (this.task.progress / 100) || 0;
         this.group = createSVG('g', {
             class: 'bar-wrapper ' + (this.task.custom_class || ''),
             'data-id': this.task.id
@@ -49,19 +49,19 @@ export default class Bar {
     }
 
     prepare_helpers() {
-        SVGElement.prototype.getX = function() {
+        SVGElement.prototype.getX = function () {
             return +this.getAttribute('x');
         };
-        SVGElement.prototype.getY = function() {
+        SVGElement.prototype.getY = function () {
             return +this.getAttribute('y');
         };
-        SVGElement.prototype.getWidth = function() {
+        SVGElement.prototype.getWidth = function () {
             return +this.getAttribute('width');
         };
-        SVGElement.prototype.getHeight = function() {
+        SVGElement.prototype.getHeight = function () {
             return +this.getAttribute('height');
         };
-        SVGElement.prototype.getEndX = function() {
+        SVGElement.prototype.getEndX = function () {
             return this.getX() + this.getWidth();
         };
     }
@@ -273,17 +273,14 @@ export default class Bar {
 
     compute_start_end_date() {
         const bar = this.$bar;
-        const x_in_units = bar.getX() / this.gantt.options.column_width;
-        const new_start_date = date_utils.add(
-            this.gantt.gantt_start,
-            x_in_units * this.gantt.options.step,
-            'hour'
-        );
-        const width_in_units = bar.getWidth() / this.gantt.options.column_width;
-        const new_end_date = date_utils.add(
-            new_start_date,
-            width_in_units * this.gantt.options.step,
-            'hour'
+
+        const {
+            start_date: new_start_date,
+            end_date: new_end_date
+        } = date_utils.compute_date_range(
+            bar.getX(),
+            bar.getWidth(),
+            this.gantt
         );
 
         return { new_start_date, new_end_date };
