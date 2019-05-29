@@ -94,8 +94,59 @@
 .gantt .hide {
   display: none; }
 
-.gantt .bar-milestone .bar {
-  fill: hotpink; }
+.gantt .bar-project .bar {
+  fill: #54B3C4; }
+
+.gantt .bar-project .bar-progress {
+  fill: #a3a3ff; }
+
+.gantt .bar-project.bar-wrapper:hover .bar {
+  fill: #41aabd; }
+
+.gantt .bar-project.bar-wrapper:hover .bar-progress {
+  fill: #8a8aff; }
+
+.gantt .bar-project.bar-wrapper.active .bar {
+  fill: #41aabd; }
+
+.gantt .bar-project.bar-wrapper.active .bar-progress {
+  fill: #8a8aff; }
+
+.gantt .bar-initiative .bar {
+  fill: #4F68C1; }
+
+.gantt .bar-initiative .bar-progress {
+  fill: #a3a3ff; }
+
+.gantt .bar-initiative.bar-wrapper:hover .bar {
+  fill: #405ab6; }
+
+.gantt .bar-initiative.bar-wrapper:hover .bar-progress {
+  fill: #8a8aff; }
+
+.gantt .bar-initiative.bar-wrapper.active .bar {
+  fill: #405ab6; }
+
+.gantt .bar-initiative.bar-wrapper.active .bar-progress {
+  fill: #8a8aff; }
+
+.gantt .bar-objective .bar {
+  fill: #48749A; }
+
+.gantt .bar-objective .bar-progress {
+  fill: #a3a3ff; }
+
+.gantt .bar-objective.bar-wrapper:hover .bar {
+  fill: #406789; }
+
+.gantt .bar-objective.bar-wrapper:hover .bar-progress {
+  fill: #8a8aff; }
+
+.gantt .bar-objective.bar-wrapper.active .bar {
+  fill: #406789; }
+
+.gantt .bar-objective.bar-wrapper.active .bar-progress {
+  fill: #8a8aff; }
 
 .gantt-container {
   position: relative;
