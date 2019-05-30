@@ -8,10 +8,10 @@ import './gantt.scss';
 import GhostBar from './new_bar';
 
 export default class Gantt {
-    constructor(wrapper, tasks, options) {
+    constructor(wrapper, tasks, groups, options) {
         this.setup_wrapper(wrapper);
         this.setup_options(options);
-        this.setup_tasks(tasks);
+        this.setup_groups(groups, tasks);
         // initialize with default view mode
         this.change_view_mode();
         this.bind_events();
@@ -72,6 +72,7 @@ export default class Gantt {
     setup_options(options) {
         const default_options = {
             header_height: 50,
+            group_header_height: 20,
             column_width: 30,
             step: 24,
             view_modes: [
@@ -86,6 +87,7 @@ export default class Gantt {
             bar_corner_radius: 3,
             arrow_curve: 5,
             padding: 18,
+            group_padding: 18,
             view_mode: 'Day',
             date_format: 'YYYY-MM-DD',
             popup_trigger: 'click',
@@ -93,6 +95,51 @@ export default class Gantt {
             language: 'en'
         };
         this.options = Object.assign({}, default_options, options);
+    }
+
+    calculate_group_header_height() {
+        return (
+            this.options.group_padding +
+            this.options.group_header_height +
+            this.options.padding
+        );
+    }
+
+    // if calculating group_start, don't add header and padding
+    calculate_y_pos(group_count, task_count, is_group_start) {
+        group_count += is_group_start ? 0 : 1;
+        return (
+            this.options.header_height +
+            this.options.group_padding +
+            task_count * (this.options.bar_height + this.options.padding) +
+            group_count * this.calculate_group_header_height()
+        );
+    }
+
+    setup_groups(groups, tasks) {
+        this.task_map = {};
+        tasks.forEach(t => {
+            this.task_map[t.id] = t;
+        });
+        // prepare groups
+        let total_tasks = 0;
+        this.groups = groups.map((group, group_number) => {
+            group.size = 0;
+            for (const n of bfs_iterable(group, this.task_map)) {
+                if (n.id !== group.id) {
+                    const task_number = total_tasks + group.size;
+                    this.task_map[n.id].y_pos = this.calculate_y_pos(
+                        group_number,
+                        task_number
+                    );
+                    group.size++;
+                }
+            }
+            total_tasks += group.size;
+            return group;
+        });
+
+        this.setup_tasks(tasks);
     }
 
     setup_tasks(tasks) {
@@ -170,8 +217,8 @@ export default class Gantt {
         }
     }
 
-    refresh(tasks) {
-        this.setup_tasks(tasks);
+    refresh(tasks, groups) {
+        this.setup_groups(groups, tasks);
         this.change_view_mode();
     }
 
@@ -307,11 +354,11 @@ export default class Gantt {
 
     make_grid_background() {
         const grid_width = this.dates.length * this.options.column_width;
-        const grid_height =
-            this.options.header_height +
-            this.options.padding +
-            (this.options.bar_height + this.options.padding) *
-            this.tasks.length;
+        const grid_height = this.calculate_y_pos(
+            this.groups.length,
+            this.tasks.length,
+            true
+        );
 
         createSVG('rect', {
             x: 0,
@@ -333,14 +380,15 @@ export default class Gantt {
         const lines_layer = createSVG('g', { append_to: this.layers.grid });
 
         const row_width = this.dates.length * this.options.column_width;
-        const row_height = this.options.bar_height + this.options.padding;
+        const bar_row_height = this.options.bar_height + this.options.padding;
+        const group_header_height = this.calculate_group_header_height();
 
-        let row_y = this.options.header_height + this.options.padding / 2;
+        let row_y = this.options.header_height + this.options.group_padding / 2;
 
-        // FIXME: implement objective/initiative logic
-        let row_count = 0;
-
-        const create_row = custom_row_height => {
+        // TODO: Add group name, make object?
+        const create_row = row_count => {
+            const custom_row_height =
+                bar_row_height * row_count + group_header_height;
             createSVG('rect', {
                 x: 0,
                 y: row_y,
@@ -362,19 +410,9 @@ export default class Gantt {
             row_y += custom_row_height;
         };
 
-        for (let task of this.tasks) {
-            if (task.type === 'objective') {
-                if (row_count) {
-                    create_row(row_height * row_count);
-                }
-                row_count = 1;
-            } else {
-                row_count += 1;
-            }
-        }
-        if (row_count > 1) {
-            create_row(row_height * row_count);
-        }
+        this.groups.forEach(group => {
+            create_row(group.size);
+        });
     }
 
     make_grid_header() {
@@ -585,7 +623,7 @@ export default class Gantt {
 
     make_bars() {
         this.bars = this.tasks.map(task => {
-            const bar = new Bar(this, task);
+            const bar = new Bar(this, task, task.y_pos);
             this.layers.bar.appendChild(bar.group);
             return bar;
         });
@@ -1016,4 +1054,32 @@ function generate_id(task) {
             .toString(36)
             .slice(2, 12)
     );
+}
+
+// takes the root of a tree,
+// 'children' attribute defines children
+// returns iterator that traverses tree in bfs manner
+// note: 'root' may not be in the task_map
+function bfs_iterable(root, task_map) {
+    return {
+        [Symbol.iterator]() {
+            const queue = [root];
+            let n;
+            return {
+                next() {
+                    n = queue.shift();
+                    if (!n) {
+                        return { value: undefined, done: true };
+                    } else {
+                        if (n.children) {
+                            for (const ch of n.children) {
+                                queue.push(task_map[ch]);
+                            }
+                        }
+                        return { value: n, done: false };
+                    }
+                }
+            };
+        }
+    };
 }

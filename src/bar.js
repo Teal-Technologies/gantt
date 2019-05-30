@@ -2,7 +2,8 @@ import date_utils from './date_utils';
 import { $, createSVG, animateSVG } from './svg_utils';
 
 export default class Bar {
-    constructor(gantt, task) {
+    constructor(gantt, task, y_pos) {
+        this.y_pos = y_pos;
         this.set_defaults(gantt, task);
         this.prepare();
         this.draw();
@@ -308,11 +309,7 @@ export default class Bar {
     }
 
     compute_y() {
-        return (
-            this.gantt.options.header_height +
-            this.gantt.options.padding +
-            this.task._index * (this.height + this.gantt.options.padding)
-        );
+        return this.y_pos;
     }
 
     get_snap_position(dx) {
