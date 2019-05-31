@@ -272,6 +272,13 @@ export default class Gantt {
             }
         }
 
+        if (!this.gantt_start) {
+            this.gantt_start = date_utils.add(date_utils.today(), -1, 'year');
+        }
+        if (!this.gantt_end) {
+            this.gantt_end = date_utils.add(date_utils.today(), 1, 'year');
+        }
+
         this.gantt_start = date_utils.start_of(this.gantt_start, 'day');
         this.gantt_end = date_utils.start_of(this.gantt_end, 'day');
 
@@ -663,9 +670,7 @@ export default class Gantt {
 
     set_width() {
         const cur_width = this.$svg.getBoundingClientRect().width;
-        const actual_width = this.$svg
-            .querySelector('.grid .grid-row')
-            .getAttribute('width');
+        const actual_width = this.dates.length * this.options.column_width;
         if (cur_width < actual_width) {
             this.$svg.setAttribute('width', actual_width);
         }
@@ -1032,7 +1037,8 @@ export default class Gantt {
             .map(task => task._start)
             .reduce(
                 (prev_date, cur_date) =>
-                    cur_date <= prev_date ? cur_date : prev_date
+                    cur_date <= prev_date ? cur_date : prev_date,
+                date_utils.today()
             );
     }
 

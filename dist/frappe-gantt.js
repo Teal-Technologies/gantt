@@ -758,7 +758,7 @@ class Bar {
     }
 
     compute_y() {
-        return y_pos;
+        return this.y_pos;
     }
 
     get_snap_position(dx) {
@@ -1130,15 +1130,22 @@ class Gantt {
         this.options = Object.assign({}, default_options, options);
     }
 
-    calculate_y_pos(group_number, task_number) {
+    calculate_group_header_height() {
+        return (
+            this.options.group_padding +
+            this.options.group_header_height +
+            this.options.padding
+        );
+    }
+
+    // if calculating group_start, don't add header and padding
+    calculate_y_pos(group_count, task_count, is_group_start) {
+        group_count += is_group_start ? 0 : 1;
         return (
             this.options.header_height +
-            this.options.padding +
-            task_number * (this.height + this.options.padding) +
-            group_number *
-            (this.options.group_padding +
-                this.options.group_header_height +
-                this.options.padding)
+            this.options.group_padding +
+            task_count * (this.options.bar_height + this.options.padding) +
+            group_count * this.calculate_group_header_height()
         );
     }
 
@@ -1148,23 +1155,24 @@ class Gantt {
             this.task_map[t.id] = t;
         });
         // prepare groups
-        const total_tasks = 0;
+        let total_tasks = 0;
         this.groups = groups.map((group, group_number) => {
             group.size = 0;
-            const it = bfs_iterable(group, this.task_map);
-            for (const n of it) {
-                const task_number = total_tasks + group_size;
-                this.task_map[n.id].y_pos = this.calculate_y_pos(
-                    group_number,
-                    task_number
-                );
-                group.size++;
+            for (const n of bfs_iterable(group, this.task_map)) {
+                if (n.id !== group.id) {
+                    const task_number = total_tasks + group.size;
+                    this.task_map[n.id].y_pos = this.calculate_y_pos(
+                        group_number,
+                        task_number
+                    );
+                    group.size++;
+                }
             }
             total_tasks += group.size;
             return group;
         });
 
-        setup_tasks(tasks);
+        this.setup_tasks(tasks);
     }
 
     setup_tasks(tasks) {
@@ -1297,6 +1305,13 @@ class Gantt {
             }
         }
 
+        if (!this.gantt_start) {
+            this.gantt_start = date_utils.add(date_utils.today(), -1, 'year');
+        }
+        if (!this.gantt_end) {
+            this.gantt_end = date_utils.add(date_utils.today(), 1, 'year');
+        }
+
         this.gantt_start = date_utils.start_of(this.gantt_start, 'day');
         this.gantt_end = date_utils.start_of(this.gantt_end, 'day');
 
@@ -1379,11 +1394,11 @@ class Gantt {
 
     make_grid_background() {
         const grid_width = this.dates.length * this.options.column_width;
-        const grid_height =
-            this.options.header_height +
-            this.options.padding +
-            (this.options.bar_height + this.options.padding) *
-            this.tasks.length;
+        const grid_height = this.calculate_y_pos(
+            this.groups.length,
+            this.tasks.length,
+            true
+        );
 
         createSVG('rect', {
             x: 0,
@@ -1405,12 +1420,15 @@ class Gantt {
         const lines_layer = createSVG('g', { append_to: this.layers.grid });
 
         const row_width = this.dates.length * this.options.column_width;
-        const row_height = this.options.bar_height + this.options.padding;
+        const bar_row_height = this.options.bar_height + this.options.padding;
+        const group_header_height = this.calculate_group_header_height();
 
-        let row_y = this.options.header_height + this.options.padding / 2;
+        let row_y = this.options.header_height + this.options.group_padding / 2;
 
         // TODO: Add group name, make object?
-        const create_row = custom_row_height => {
+        const create_row = row_count => {
+            const custom_row_height =
+                bar_row_height * row_count + group_header_height;
             createSVG('rect', {
                 x: 0,
                 y: row_y,
@@ -1432,9 +1450,9 @@ class Gantt {
             row_y += custom_row_height;
         };
 
-        for (let group of this.groups) {
-            create_row(row_height * group.size);
-        }
+        this.groups.forEach(group => {
+            create_row(group.size);
+        });
     }
 
     make_grid_header() {
@@ -1685,9 +1703,7 @@ class Gantt {
 
     set_width() {
         const cur_width = this.$svg.getBoundingClientRect().width;
-        const actual_width = this.$svg
-            .querySelector('.grid .grid-row')
-            .getAttribute('width');
+        const actual_width = this.dates.length * this.options.column_width;
         if (cur_width < actual_width) {
             this.$svg.setAttribute('width', actual_width);
         }
@@ -2054,7 +2070,8 @@ class Gantt {
             .map(task => task._start)
             .reduce(
                 (prev_date, cur_date) =>
-                    cur_date <= prev_date ? cur_date : prev_date
+                    cur_date <= prev_date ? cur_date : prev_date,
+                date_utils.today()
             );
     }
 
@@ -2089,10 +2106,10 @@ function bfs_iterable(root, task_map) {
             let n;
             return {
                 next() {
-                    if (queue.length === 0) {
+                    n = queue.shift();
+                    if (!n) {
                         return { value: undefined, done: true };
                     } else {
-                        n = queue.shift();
                         if (n.children) {
                             for (const ch of n.children) {
                                 queue.push(task_map[ch]);
