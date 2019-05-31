@@ -1040,11 +1040,53 @@ class GhostBar {
     }
 }
 
+class Stream {
+    constructor(gantt, group, y_pos) {
+        this.gantt = gantt;
+        this.group = group;
+        this.y = y_pos;
+        this.prepare();
+        this.draw();
+        this.bind();
+    }
+
+    prepare() {
+        this.x = 50;
+        this.height =
+            this.gantt.options.group_header_height +
+            this.gantt.options.group_padding;
+        this.g_elem = createSVG('g', {
+            class: 'stream-label-group',
+            'data-id': this.group.id
+        });
+    }
+
+    draw() {
+        this.draw_label();
+    }
+
+    draw_label() {
+        createSVG('text', {
+            x: this.x,
+            y: this.y + this.height / 2,
+            innerHTML: this.group.name,
+            class: 'stream-label',
+            append_to: this.g_elem
+        });
+    }
+
+    bind() {
+        $.on(this.g_elem, 'click', e => {
+            console.log(`clicked: ${this.group.name}`);
+        });
+    }
+}
+
 class Gantt {
-    constructor(wrapper, tasks, groups, options) {
+    constructor(wrapper, tasks, streams, options) {
         this.setup_wrapper(wrapper);
         this.setup_options(options);
-        this.setup_groups(groups, tasks);
+        this.setup_streams(streams, tasks);
         // initialize with default view mode
         this.change_view_mode();
         this.bind_events();
@@ -1139,8 +1181,8 @@ class Gantt {
     }
 
     // if calculating group_start, don't add header and padding
-    calculate_y_pos(group_count, task_count, is_group_start) {
-        group_count += is_group_start ? 0 : 1;
+    calculate_y_pos(group_count, task_count, is_stream_top) {
+        group_count += is_stream_top ? 0 : 1;
         return (
             this.options.header_height +
             this.options.group_padding +
@@ -1149,27 +1191,32 @@ class Gantt {
         );
     }
 
-    setup_groups(groups, tasks) {
+    setup_streams(streams, tasks) {
         this.task_map = {};
         tasks.forEach(t => {
             this.task_map[t.id] = t;
         });
         // prepare groups
         let total_tasks = 0;
-        this.groups = groups.map((group, group_number) => {
-            group.size = 0;
-            for (const n of bfs_iterable(group, this.task_map)) {
-                if (n.id !== group.id) {
-                    const task_number = total_tasks + group.size;
+        this.streams = streams.map((stream, stream_number) => {
+            stream.y_pos = this.calculate_y_pos(
+                stream_number,
+                total_tasks,
+                true
+            );
+            stream.size = 0;
+            for (const n of bfs_iterable(stream, this.task_map)) {
+                if (n.id !== stream.id) {
+                    const task_number = total_tasks + stream.size;
                     this.task_map[n.id].y_pos = this.calculate_y_pos(
-                        group_number,
+                        stream_number,
                         task_number
                     );
-                    group.size++;
+                    stream.size++;
                 }
             }
-            total_tasks += group.size;
-            return group;
+            total_tasks += stream.size;
+            return stream;
         });
 
         this.setup_tasks(tasks);
@@ -1251,7 +1298,7 @@ class Gantt {
     }
 
     refresh(tasks, groups) {
-        this.setup_groups(groups, tasks);
+        this.setup_streams(groups, tasks);
         this.change_view_mode();
     }
 
@@ -1358,6 +1405,7 @@ class Gantt {
     bind_events() {
         this.bind_grid_click();
         this.bind_bar_events();
+        this.bind_scroll_sync();
     }
 
     render() {
@@ -1365,16 +1413,25 @@ class Gantt {
         this.setup_layers();
         this.make_grid();
         this.make_dates();
+        this.make_streams();
         this.make_bars();
         this.make_arrows();
         this.map_arrows_on_bars();
         this.set_width();
-        this.set_scroll_position();
+        // this.set_scroll_position();
     }
 
     setup_layers() {
         this.layers = {};
-        const layers = ['grid', 'date', 'arrow', 'progress', 'bar', 'details'];
+        const layers = [
+            'grid',
+            'date',
+            'arrow',
+            'progress',
+            'bar',
+            'details',
+            'h-static'
+        ];
         // make group layers
         for (let layer of layers) {
             this.layers[layer] = createSVG('g', {
@@ -1395,7 +1452,7 @@ class Gantt {
     make_grid_background() {
         const grid_width = this.dates.length * this.options.column_width;
         const grid_height = this.calculate_y_pos(
-            this.groups.length,
+            this.streams.length,
             this.tasks.length,
             true
         );
@@ -1413,6 +1470,10 @@ class Gantt {
             height: grid_height + this.options.padding + 100,
             width: '100%'
         });
+
+        // Set height/width of static layers
+        this.h_static_wrapper.setAttribute('height', grid_height);
+        this.h_static_wrapper.setAttribute('width', '100%');
     }
 
     make_grid_rows() {
@@ -1450,7 +1511,7 @@ class Gantt {
             row_y += custom_row_height;
         };
 
-        this.groups.forEach(group => {
+        this.streams.forEach(group => {
             create_row(group.size);
         });
     }
@@ -1659,6 +1720,14 @@ class Gantt {
             lower_x: base_pos.x + x_pos[`${this.options.view_mode}_lower`],
             lower_y: base_pos.lower_y
         };
+    }
+
+    make_streams() {
+        this.stream_labels = this.streams.map(stream => {
+            const stream_label = new Stream(this, stream, stream.y_pos);
+            this.h_static_wrapper.appendChild(stream_label.g_elem);
+            return stream_label;
+        });
     }
 
     make_bars() {
@@ -1957,6 +2026,16 @@ class Gantt {
             if (!($bar_progress && $bar_progress.finaldx)) return;
             bar.progress_changed();
             bar.set_action_completed();
+        });
+    }
+
+    bind_scroll_sync() {
+        $.on(this.$container, 'scroll', () => {
+            const scrollTop = this.$container.scrollLeft;
+            this.h_static_wrapper.setAttribute(
+                'transform',
+                `translate(0, ${-scrollTop}`
+            );
         });
     }
 

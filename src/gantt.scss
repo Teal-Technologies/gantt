@@ -12,6 +12,7 @@ $text-light: #555 !default;
 $text-color: #333 !default;
 $blue: #a3a3ff !default;
 $handle-color: #ddd !default;
+$container-height: 40rem;
 
 .gantt {
 	.grid-background {
@@ -231,6 +232,7 @@ $handle-color: #ddd !default;
 	position: relative;
 	overflow: auto;
 	font-size: 12px;
+	height: $container-height;
 
 	.popup-wrapper {
 		position: absolute;
@@ -261,18 +263,15 @@ $handle-color: #ddd !default;
 	}
 
 	.popup-wrapper {
-		position: absolute;
-		top: 0;
-		left: 0;
-		padding: 0;
-		color: #959da5;
-		border-radius: 3px;
-
-	
 		.new-bar {
 			background-color: hotpink;
 			width: 100%;
 			height: 100%;
 		}
 	}
+
+}
+
+.h-static {
+	pointer-events: none;
 }
