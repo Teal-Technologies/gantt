@@ -262,9 +262,14 @@ $container-height: 40rem;
 		}
 	}
 
-	.popup-wrapper {
+	.new-bar-wrapper {
+		position: absolute;
+		top: 0;
+		left: 0;
+
 		.new-bar {
-			background-color: hotpink;
+			background-color: rgba(0, 0, 0, 0.3);
+			border-radius: 3px;
 			width: 100%;
 			height: 100%;
 		}
@@ -274,4 +279,10 @@ $container-height: 40rem;
 
 .h-static {
 	pointer-events: none;
+	user-select: none;
+}
+
+.v-static {
+	pointer-events: none;
+	user-select: none;
 }

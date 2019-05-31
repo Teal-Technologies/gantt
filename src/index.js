@@ -66,7 +66,7 @@ export default class Gantt {
 
         // add/move wrapper
         this.ghost_wrapper = document.createElement('div');
-        this.ghost_wrapper.classList.add('popup-wrapper');
+        this.ghost_wrapper.classList.add('new-bar-wrapper');
         this.$container.appendChild(this.ghost_wrapper);
     }
 
@@ -842,17 +842,22 @@ export default class Gantt {
         let y_on_start = 0;
 
         const add_complete = e => {
-            const dx = e.offsetX - x_on_start;
+            const dx = Math.abs(e.offsetX - x_on_start);
+            const start_x = Math.min(e.offsetX, x_on_start);
             if (is_adding_new) {
                 is_adding_new = false;
                 if (this.newBar) {
                     this.newBar.hide();
                 }
 
+                if (dx < 10) {
+                    return;
+                }
+
                 const {
                     start_date: new_start_date,
                     end_date: new_end_date
-                } = date_utils.compute_date_range(x_on_start, dx, this);
+                } = date_utils.compute_date_range(start_x, dx, this);
 
                 this.trigger_event('new_task', [
                     new_start_date,
@@ -869,33 +874,38 @@ export default class Gantt {
             if (!this.newBar) {
                 this.newBar = new GhostBar(this.ghost_wrapper);
             }
-            this.newBar.show({
-                x: x_on_start,
-                y: y_on_start,
-                width: 10,
-                height: 10
-            });
         };
 
         $.on(this.$svg, 'mousedown', '.grid-row', (e, element) => {
             if (is_adding_new) {
                 add_complete(e);
             } else {
-                add_start(e);
+                if (e.button === 0) {
+                    add_start(e);
+                }
             }
         });
 
         $.on(this.$svg, 'mousemove', e => {
             if (!is_adding_new) return;
-            const dx = e.offsetX - x_on_start;
-            const dy = e.offsetY - y_on_start;
+            const dx = Math.abs(e.offsetX - x_on_start);
+            if (dx > 10) {
+                this.newBar.show({
+                    x: Math.min(x_on_start, e.offsetX),
+                    y: y_on_start,
+                    width: dx,
+                    height: this.options.bar_height
+                });
+            } else {
+                this.newBar.hide();
+            }
             this.newBar.setPosition({
                 width: dx,
-                height: 10
+                height: this.options.bar_height
             });
         });
 
-        $.on(this.$svg, 'mouseup', e => {
+        document.addEventListener('mouseup', e => {
             add_complete(e);
         });
     }
