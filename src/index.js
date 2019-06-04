@@ -131,7 +131,7 @@ export default class Gantt {
                 true
             );
             stream.size = 0;
-            for (const n of bfs_iterable(stream, this.task_map)) {
+            for (const n of dfs_iterable(stream, this.task_map)) {
                 if (n.id !== stream.id) {
                     const task_number = total_tasks + stream.size;
                     this.task_map[n.id].y_pos = this.calculate_y_pos(
@@ -378,7 +378,7 @@ export default class Gantt {
     make_grid_background() {
         const grid_width = this.dates.length * this.options.column_width;
         const grid_height = this.calculate_y_pos(
-            this.streams.length,
+            this.streams.length + 1,
             this.tasks.length,
             true
         );
@@ -392,8 +392,9 @@ export default class Gantt {
             append_to: this.layers.grid
         });
 
+        // FIXME: Height is being calculated incorrectly!
         $.attr(this.$svg, {
-            height: grid_height + this.options.padding + 100,
+            height: grid_height + this.options.padding + 100 + 300,
             width: '100%'
         });
     }
@@ -840,10 +841,11 @@ export default class Gantt {
         let is_adding_new = false;
         let x_on_start = 0;
         let y_on_start = 0;
+        // Only update these based on mouse move events on svg (otherwise offsetX is incorrect)
+        let dx = 0;
+        let start_x = 0;
 
         const add_complete = e => {
-            const dx = Math.abs(e.offsetX - x_on_start);
-            const start_x = Math.min(e.offsetX, x_on_start);
             if (is_adding_new) {
                 is_adding_new = false;
                 if (this.newBar) {
@@ -870,6 +872,8 @@ export default class Gantt {
             is_adding_new = true;
             x_on_start = e.offsetX;
             y_on_start = e.offsetY;
+            dx = 0;
+            start_x = 0;
 
             if (!this.newBar) {
                 this.newBar = new GhostBar(this.ghost_wrapper);
@@ -888,7 +892,8 @@ export default class Gantt {
 
         $.on(this.$svg, 'mousemove', e => {
             if (!is_adding_new) return;
-            const dx = Math.abs(e.offsetX - x_on_start);
+            dx = Math.abs(e.offsetX - x_on_start);
+            start_x = Math.min(e.offsetX, x_on_start);
             if (dx > 10) {
                 this.newBar.show({
                     x: Math.min(x_on_start, e.offsetX),
@@ -1114,20 +1119,20 @@ function generate_id(task) {
 // 'children' attribute defines children
 // returns iterator that traverses tree in bfs manner
 // note: 'root' may not be in the task_map
-function bfs_iterable(root, task_map) {
+function dfs_iterable(root, task_map) {
     return {
         [Symbol.iterator]() {
-            const queue = [root];
+            const stack = [root];
             let n;
             return {
                 next() {
-                    n = queue.shift();
+                    n = stack.pop();
                     if (!n) {
                         return { value: undefined, done: true };
                     } else {
                         if (n.children) {
                             for (const ch of n.children) {
-                                queue.push(task_map[ch]);
+                                stack.push(task_map[ch]);
                             }
                         }
                         return { value: n, done: false };
