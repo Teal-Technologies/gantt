@@ -344,7 +344,7 @@ export default class Gantt {
         this.make_arrows();
         this.map_arrows_on_bars();
         this.set_width();
-        // this.set_scroll_position();
+        this.set_scroll_position();
     }
 
     setup_layers() {
@@ -706,8 +706,11 @@ export default class Gantt {
         const parent_element = this.$svg.parentElement;
         if (!parent_element) return;
 
+        const date_position =
+            this.scroll_date_position || this.get_oldest_starting_date;
+
         const hours_before_first_task = date_utils.diff(
-            this.get_oldest_starting_date(),
+            date_position,
             this.gantt_start,
             'hour'
         );
@@ -715,7 +718,6 @@ export default class Gantt {
         const scroll_pos =
             hours_before_first_task /
             this.options.step *
-            this.options.column_width -
             this.options.column_width;
 
         parent_element.scrollLeft = scroll_pos;
@@ -767,6 +769,7 @@ export default class Gantt {
             const ids = [
                 parent_bar_id,
                 ...this.get_all_dependent_tasks(parent_bar_id)
+                // ...this.get_all_child_tasks(parent_bar_id)
             ];
             bars = ids.map(id => this.get_bar(id));
 
@@ -969,6 +972,10 @@ export default class Gantt {
 
     bind_scroll_sync() {
         $.on(this.$container, 'scroll', () => {
+            this.scroll_date_position = date_utils.compute_date(
+                this.$container.scrollLeft,
+                this
+            );
             this.layers['h-static'].setAttribute(
                 'transform',
                 `translate(${this.$container.scrollLeft}, 0)`
@@ -994,6 +1001,12 @@ export default class Gantt {
         }
 
         return out.filter(Boolean);
+    }
+
+    get_all_child_tasks(task_id) {
+        return [...dfs_iterable(this.task_map[task_id], this.task_map)].map(
+            task => task.id
+        );
     }
 
     get_snap_position(dx) {

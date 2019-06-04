@@ -280,20 +280,17 @@ export default {
     },
 
     compute_date_range(x, width, gantt) {
-        const x_in_units = x / gantt.options.column_width;
-        const start_date = this.add(
-            gantt.gantt_start,
-            x_in_units * gantt.options.step,
-            'hour'
-        );
-        const width_in_units = width / gantt.options.column_width;
-        const end_date = this.add(
-            start_date,
-            width_in_units * gantt.options.step,
-            'hour'
-        );
-
+        const start_date = this.compute_date(x, gantt);
+        const end_date = this.compute_date(x + width, gantt);
         return { start_date, end_date };
+    },
+
+    compute_date(position, gantt) {
+        return this.add(
+            gantt.gantt_start,
+            position / gantt.options.column_width * gantt.options.step,
+            'hour'
+        );
     }
 };
 
