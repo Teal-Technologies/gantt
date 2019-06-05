@@ -82,7 +82,8 @@
 
 .gantt .lower-text, .gantt .upper-text {
   font-size: 12px;
-  text-anchor: middle; }
+  text-anchor: middle;
+  user-select: none; }
 
 .gantt .upper-text {
   fill: #555; }
@@ -93,10 +94,65 @@
 .gantt .hide {
   display: none; }
 
+.gantt .bar-project .bar {
+  fill: #54B3C4; }
+
+.gantt .bar-project .bar-progress {
+  fill: #a3a3ff; }
+
+.gantt .bar-project.bar-wrapper:hover .bar {
+  fill: #41aabd; }
+
+.gantt .bar-project.bar-wrapper:hover .bar-progress {
+  fill: #8a8aff; }
+
+.gantt .bar-project.bar-wrapper.active .bar {
+  fill: #41aabd; }
+
+.gantt .bar-project.bar-wrapper.active .bar-progress {
+  fill: #8a8aff; }
+
+.gantt .bar-initiative .bar {
+  fill: #4F68C1; }
+
+.gantt .bar-initiative .bar-progress {
+  fill: #a3a3ff; }
+
+.gantt .bar-initiative.bar-wrapper:hover .bar {
+  fill: #405ab6; }
+
+.gantt .bar-initiative.bar-wrapper:hover .bar-progress {
+  fill: #8a8aff; }
+
+.gantt .bar-initiative.bar-wrapper.active .bar {
+  fill: #405ab6; }
+
+.gantt .bar-initiative.bar-wrapper.active .bar-progress {
+  fill: #8a8aff; }
+
+.gantt .bar-objective .bar {
+  fill: #48749A; }
+
+.gantt .bar-objective .bar-progress {
+  fill: #a3a3ff; }
+
+.gantt .bar-objective.bar-wrapper:hover .bar {
+  fill: #406789; }
+
+.gantt .bar-objective.bar-wrapper:hover .bar-progress {
+  fill: #8a8aff; }
+
+.gantt .bar-objective.bar-wrapper.active .bar {
+  fill: #406789; }
+
+.gantt .bar-objective.bar-wrapper.active .bar-progress {
+  fill: #8a8aff; }
+
 .gantt-container {
   position: relative;
   overflow: auto;
-  font-size: 12px; }
+  font-size: 12px;
+  height: 40rem; }
   .gantt-container .popup-wrapper {
     position: absolute;
     top: 0;
@@ -117,3 +173,10 @@
       margin: 0 0 0 -5px;
       border: 5px solid transparent;
       border-top-color: rgba(0, 0, 0, 0.8); }
+  .gantt-container .popup-wrapper .new-bar {
+    background-color: hotpink;
+    width: 100%;
+    height: 100%; }
+
+.h-static {
+  pointer-events: none; }

@@ -141,7 +141,7 @@ export default {
             HH: values[3],
             mm: values[4],
             ss: values[5],
-            SSS:values[6],
+            SSS: values[6],
             D: values[2],
             MMMM: month_names[lang][+values[1]],
             MMM: month_names[lang][+values[1]]
@@ -277,6 +277,20 @@ export default {
             return 29;
         }
         return 28;
+    },
+
+    compute_date_range(x, width, gantt) {
+        const start_date = this.compute_date(x, gantt);
+        const end_date = this.compute_date(x + width, gantt);
+        return { start_date, end_date };
+    },
+
+    compute_date(position, gantt) {
+        return this.add(
+            gantt.gantt_start,
+            position / gantt.options.column_width * gantt.options.step,
+            'hour'
+        );
     }
 };
 

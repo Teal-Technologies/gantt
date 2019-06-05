@@ -5,12 +5,15 @@ import Arrow from './arrow';
 import Popup from './popup';
 
 import './gantt.scss';
+import GhostBar from './new_bar';
+import Stream from './stream';
 
 export default class Gantt {
-    constructor(wrapper, tasks, options) {
+    constructor(wrapper, tasks, streams, options) {
         this.setup_wrapper(wrapper);
+        this.setup_defs();
         this.setup_options(options);
-        this.setup_tasks(tasks);
+        this.setup_streams(streams, tasks);
         // initialize with default view mode
         this.change_view_mode();
         this.bind_events();
@@ -33,7 +36,7 @@ export default class Gantt {
         } else {
             throw new TypeError(
                 'Frappé Gantt only supports usage of a string CSS selector,' +
-                    " HTML DOM element or SVG DOM element for the 'element' parameter"
+                " HTML DOM element or SVG DOM element for the 'element' parameter"
             );
         }
 
@@ -61,11 +64,34 @@ export default class Gantt {
         this.popup_wrapper = document.createElement('div');
         this.popup_wrapper.classList.add('popup-wrapper');
         this.$container.appendChild(this.popup_wrapper);
+
+        // add/move wrapper
+        this.ghost_wrapper = document.createElement('div');
+        this.ghost_wrapper.classList.add('new-bar-wrapper');
+        this.$container.appendChild(this.ghost_wrapper);
+    }
+
+    setup_defs() {
+        this.defs = createSVG('defs');
+        const shadow_filter = createSVG('filter', {
+            append_to: this.defs,
+            id: 'row-shadow'
+        });
+        createSVG('feDropShadow', {
+            append_to: shadow_filter,
+            dx: 0,
+            dy: 3,
+            stdDeviation: 10,
+            // ['flood-color']: '',
+            ['flood-opacity']: 0.06
+        });
     }
 
     setup_options(options) {
         const default_options = {
             header_height: 50,
+            header_spacing: 20,
+            stream_header_height: 25,
             column_width: 30,
             step: 24,
             view_modes: [
@@ -76,10 +102,15 @@ export default class Gantt {
                 'Month',
                 'Year'
             ],
-            bar_height: 20,
-            bar_corner_radius: 3,
+            project_bar_height: 26,
+            initiative_bar_height: 35,
+            initiative_corner_radius: 3,
+            project_corner_radius: 13,
             arrow_curve: 5,
-            padding: 18,
+            initiative_padding: 20,
+            stream_bottom_padding: 20,
+            padding: 5,
+            stream_padding: 76,
             view_mode: 'Day',
             date_format: 'YYYY-MM-DD',
             popup_trigger: 'click',
@@ -87,6 +118,44 @@ export default class Gantt {
             language: 'en'
         };
         this.options = Object.assign({}, default_options, options);
+    }
+
+    setup_streams(streams, tasks) {
+        this.task_map = {};
+        this.stream_map = {};
+        tasks.forEach(t => {
+            this.task_map[t.id] = t;
+        });
+        // calculate height, y_positioning of each item
+
+        let y_pos =
+            this.options.header_height +
+            this.options.header_spacing +
+            this.options.stream_header_height;
+
+        this.streams = streams;
+        this.streams.forEach(stream => {
+            stream.y_pos = y_pos;
+            y_pos += this.options.stream_header_height;
+            for (const n of dfs_iterable(stream, this.task_map)) {
+                if (n.id !== stream.id) {
+                    let task = this.task_map[n.id];
+                    task.y_pos = y_pos;
+                    y_pos +=
+                        task.type === 'Initiative'
+                            ? this.options.initiative_bar_height + this.options.initiative_padding
+                            : this.options.project_bar_height + this.options.padding;
+                }
+            }
+            y_pos += this.options.stream_bottom_padding;
+            stream.height = y_pos - stream.y_pos;
+            y_pos += this.options.stream_padding;
+            this.stream_map[stream.id] = stream;
+        });
+
+        this.grid_height = y_pos;
+
+        this.setup_tasks(tasks);
     }
 
     setup_tasks(tasks) {
@@ -164,8 +233,8 @@ export default class Gantt {
         }
     }
 
-    refresh(tasks) {
-        this.setup_tasks(tasks);
+    refresh(tasks, groups) {
+        this.setup_streams(groups, tasks);
         this.change_view_mode();
     }
 
@@ -219,6 +288,13 @@ export default class Gantt {
             }
         }
 
+        if (!this.gantt_start) {
+            this.gantt_start = date_utils.add(date_utils.today(), -1, 'year');
+        }
+        if (!this.gantt_end) {
+            this.gantt_end = date_utils.add(date_utils.today(), 1, 'year');
+        }
+
         this.gantt_start = date_utils.start_of(this.gantt_start, 'day');
         this.gantt_end = date_utils.start_of(this.gantt_end, 'day');
 
@@ -265,6 +341,7 @@ export default class Gantt {
     bind_events() {
         this.bind_grid_click();
         this.bind_bar_events();
+        this.bind_scroll_sync();
     }
 
     render() {
@@ -272,6 +349,7 @@ export default class Gantt {
         this.setup_layers();
         this.make_grid();
         this.make_dates();
+        this.make_streams();
         this.make_bars();
         this.make_arrows();
         this.map_arrows_on_bars();
@@ -280,8 +358,18 @@ export default class Gantt {
     }
 
     setup_layers() {
+        // append defs
+        this.$svg.appendChild(this.defs);
         this.layers = {};
-        const layers = ['grid', 'date', 'arrow', 'progress', 'bar', 'details'];
+        const layers = [
+            'grid',
+            'arrow',
+            'progress',
+            'bar',
+            'details',
+            'h-static',
+            'v-static'
+        ];
         // make group layers
         for (let layer of layers) {
             this.layers[layer] = createSVG('g', {
@@ -301,11 +389,7 @@ export default class Gantt {
 
     make_grid_background() {
         const grid_width = this.dates.length * this.options.column_width;
-        const grid_height =
-            this.options.header_height +
-            this.options.padding +
-            (this.options.bar_height + this.options.padding) *
-                this.tasks.length;
+        const grid_height = this.grid_height;
 
         createSVG('rect', {
             x: 0,
@@ -317,62 +401,52 @@ export default class Gantt {
         });
 
         $.attr(this.$svg, {
-            height: grid_height + this.options.padding + 100,
+            height: grid_height,
             width: '100%'
         });
     }
 
     make_grid_rows() {
         const rows_layer = createSVG('g', { append_to: this.layers.grid });
-        const lines_layer = createSVG('g', { append_to: this.layers.grid });
-
         const row_width = this.dates.length * this.options.column_width;
-        const row_height = this.options.bar_height + this.options.padding;
-
-        let row_y = this.options.header_height + this.options.padding / 2;
-
-        for (let task of this.tasks) {
+        this.streams.forEach(stream => {
             createSVG('rect', {
                 x: 0,
-                y: row_y,
+                y: stream.y_pos,
                 width: row_width,
-                height: row_height,
+                height: stream.height,
                 class: 'grid-row',
                 append_to: rows_layer
             });
-
-            createSVG('line', {
-                x1: 0,
-                y1: row_y + row_height,
-                x2: row_width,
-                y2: row_y + row_height,
-                class: 'row-line',
-                append_to: lines_layer
-            });
-
-            row_y += this.options.bar_height + this.options.padding;
-        }
+        });
     }
 
     make_grid_header() {
         const header_width = this.dates.length * this.options.column_width;
-        const header_height = this.options.header_height + 10;
+        const header_height = this.options.header_height;
+        this.date_header = createSVG('g', { append_to: this.layers['v-static'] });
         createSVG('rect', {
             x: 0,
             y: 0,
             width: header_width,
             height: header_height,
             class: 'grid-header',
-            append_to: this.layers.grid
+            append_to: this.date_header
+        });
+        createSVG('rect', {
+            x: 0,
+            y: header_height,
+            width: header_width,
+            height: this.options.header_spacing,
+            class: 'grid-header-space',
+            append_to: this.date_header
         });
     }
 
     make_grid_ticks() {
         let tick_x = 0;
         let tick_y = this.options.header_height + this.options.padding / 2;
-        let tick_height =
-            (this.options.bar_height + this.options.padding) *
-            this.tasks.length;
+        let tick_height = this.grid_height;
 
         for (let date of this.dates) {
             let tick_class = 'tick';
@@ -420,11 +494,7 @@ export default class Gantt {
             const y = 0;
 
             const width = this.options.column_width;
-            const height =
-                (this.options.bar_height + this.options.padding) *
-                    this.tasks.length +
-                this.options.header_height +
-                this.options.padding / 2;
+            const height = this.grid_height;
 
             createSVG('rect', {
                 x,
@@ -444,7 +514,7 @@ export default class Gantt {
                 y: date.lower_y,
                 innerHTML: date.lower_text,
                 class: 'lower-text',
-                append_to: this.layers.date
+                append_to: this.date_header
             });
 
             if (date.upper_text) {
@@ -453,7 +523,7 @@ export default class Gantt {
                     y: date.upper_y,
                     innerHTML: date.upper_text,
                     class: 'upper-text',
-                    append_to: this.layers.date
+                    append_to: this.date_header
                 });
 
                 // remove out-of-bound dates
@@ -508,8 +578,8 @@ export default class Gantt {
             'Half Day_upper':
                 date.getDate() !== last_date.getDate()
                     ? date.getMonth() !== last_date.getMonth()
-                      ? date_utils.format(date, 'D MMM', this.options.language)
-                      : date_utils.format(date, 'D', this.options.language)
+                        ? date_utils.format(date, 'D MMM', this.options.language)
+                        : date_utils.format(date, 'D', this.options.language)
                     : '',
             Day_upper:
                 date.getMonth() !== last_date.getMonth()
@@ -531,8 +601,8 @@ export default class Gantt {
 
         const base_pos = {
             x: i * this.options.column_width,
-            lower_y: this.options.header_height,
-            upper_y: this.options.header_height - 25
+            lower_y: this.options.header_height - 10,
+            upper_y: this.options.header_height - 35
         };
 
         const x_pos = {
@@ -560,9 +630,17 @@ export default class Gantt {
         };
     }
 
+    make_streams() {
+        this.stream_labels = this.streams.map(stream => {
+            const stream_label = new Stream(this, stream, stream.y_pos);
+            this.layers['h-static'].appendChild(stream_label.g_elem);
+            return stream_label;
+        });
+    }
+
     make_bars() {
         this.bars = this.tasks.map(task => {
-            const bar = new Bar(this, task);
+            const bar = new Bar(this, task, task.y_pos);
             this.layers.bar.appendChild(bar.group);
             return bar;
         });
@@ -602,9 +680,7 @@ export default class Gantt {
 
     set_width() {
         const cur_width = this.$svg.getBoundingClientRect().width;
-        const actual_width = this.$svg
-            .querySelector('.grid .grid-row')
-            .getAttribute('width');
+        const actual_width = this.dates.length * this.options.column_width;
         if (cur_width < actual_width) {
             this.$svg.setAttribute('width', actual_width);
         }
@@ -614,16 +690,22 @@ export default class Gantt {
         const parent_element = this.$svg.parentElement;
         if (!parent_element) return;
 
+        let date_position = this.scroll_date_position;
+
+        if (!date_position) {
+            date_position = date_utils.add(date_utils.today(), -2, 'month');
+            this.scroll_date_position = date_position;
+        }
+
         const hours_before_first_task = date_utils.diff(
-            this.get_oldest_starting_date(),
+            date_position,
             this.gantt_start,
             'hour'
         );
 
         const scroll_pos =
             hours_before_first_task /
-                this.options.step *
-                this.options.column_width -
+            this.options.step *
             this.options.column_width;
 
         parent_element.scrollLeft = scroll_pos;
@@ -674,7 +756,8 @@ export default class Gantt {
             parent_bar_id = bar_wrapper.getAttribute('data-id');
             const ids = [
                 parent_bar_id,
-                ...this.get_all_dependent_tasks(parent_bar_id)
+                ...this.get_all_dependent_tasks(parent_bar_id),
+                ...this.get_all_child_tasks(parent_bar_id)
             ];
             bars = ids.map(id => this.get_bar(id));
 
@@ -742,6 +825,107 @@ export default class Gantt {
         });
 
         this.bind_bar_progress();
+        this.bind_bar_add();
+    }
+
+    bind_bar_add() {
+        let is_adding_new = false;
+        let x_on_start = 0;
+        let y_on_start = 0;
+        // Only update these based on mouse move events on svg (otherwise offsetX is incorrect)
+        let dx = 0;
+        let earliest_x = 0;
+
+        const add_complete = e => {
+            if (is_adding_new) {
+                is_adding_new = false;
+                if (this.newBar) {
+                    this.newBar.hide();
+                }
+
+                if (dx < 10) {
+                    return;
+                }
+
+                const {
+                    start_date: new_start_date,
+                    end_date: new_end_date
+                } = date_utils.compute_date_range(earliest_x, dx, this);
+
+                const parentId = this.get_parent_item_id(
+                    y_on_start,
+                    new_start_date,
+                    new_end_date
+                );
+
+                this.trigger_event('new_task', [
+                    new_start_date,
+                    date_utils.add(new_end_date, -1, 'second'),
+                    parentId
+                ]);
+            }
+        };
+
+        const add_start = e => {
+            is_adding_new = true;
+            x_on_start = e.offsetX;
+            y_on_start = e.offsetY;
+            dx = 0;
+            earliest_x = 0;
+
+            if (!this.newBar) {
+                this.newBar = new GhostBar(this.ghost_wrapper);
+            }
+        };
+
+        $.on(this.$svg, 'mousedown', '.grid-row', (e, element) => {
+            if (is_adding_new) {
+                add_complete(e);
+            } else {
+                if (e.button === 0) {
+                    add_start(e);
+                }
+            }
+        });
+
+        $.on(this.$svg, 'mousemove', e => {
+            if (!is_adding_new) return;
+            dx = Math.abs(e.offsetX - x_on_start);
+            earliest_x = Math.min(e.offsetX, x_on_start);
+            if (dx > 10) {
+                const { start_date, end_date } = date_utils.compute_date_range(
+                    earliest_x,
+                    dx,
+                    this
+                );
+                const parentId = this.get_parent_item_id(
+                    y_on_start,
+                    start_date,
+                    end_date
+                );
+                let new_bar_height = this.options.project_bar_height;
+                if (this.stream_map[parentId]) {
+                    this.newBar.setBarTypeState('initiative');
+                    new_bar_height = this.options.initiative_bar_height;
+                } else if (this.task_map[parentId]) {
+                    this.newBar.setBarTypeState('project');
+                } else {
+                    this.newBar.setBarTypeState();
+                }
+                this.newBar.show({
+                    x: Math.min(x_on_start, e.offsetX),
+                    y: y_on_start,
+                    width: dx,
+                    height: new_bar_height
+                });
+            } else {
+                this.newBar.hide();
+            }
+        });
+
+        document.addEventListener('mouseup', e => {
+            add_complete(e);
+        });
     }
 
     bind_bar_progress() {
@@ -796,6 +980,23 @@ export default class Gantt {
         });
     }
 
+    bind_scroll_sync() {
+        $.on(this.$container, 'scroll', () => {
+            this.scroll_date_position = date_utils.compute_date(
+                this.$container.scrollLeft,
+                this
+            );
+            this.layers['h-static'].setAttribute(
+                'transform',
+                `translate(${this.$container.scrollLeft}, 0)`
+            );
+            this.layers['v-static'].setAttribute(
+                'transform',
+                `translate(0, ${this.$container.scrollTop})`
+            );
+        });
+    }
+
     get_all_dependent_tasks(task_id) {
         let out = [];
         let to_process = [task_id];
@@ -810,6 +1011,12 @@ export default class Gantt {
         }
 
         return out.filter(Boolean);
+    }
+
+    get_all_child_tasks(task_id) {
+        return [...dfs_iterable(this.task_map[task_id], this.task_map)].map(
+            task => task.id
+        );
     }
 
     get_snap_position(dx) {
@@ -906,7 +1113,8 @@ export default class Gantt {
             .map(task => task._start)
             .reduce(
                 (prev_date, cur_date) =>
-                    cur_date <= prev_date ? cur_date : prev_date
+                    cur_date <= prev_date ? cur_date : prev_date,
+                date_utils.today()
             );
     }
 
@@ -918,6 +1126,37 @@ export default class Gantt {
     clear() {
         this.$svg.innerHTML = '';
     }
+
+    get_parent_item_id(y_pos, start, end) {
+        let id = undefined;
+        const is_above = (test_y, test_id) => {
+            if (test_y > y_pos) {
+                return true;
+            } else {
+                id = test_id;
+                return false;
+            }
+        };
+        this.streams.forEach(stream => {
+            if (is_above(stream.y_pos, stream.id)) {
+                return id;
+            }
+            for (const n of dfs_iterable(stream, this.task_map)) {
+                if (n.id !== stream.id) {
+                    let task = this.task_map[n.id];
+                    if (
+                        task.type === 'Initiative' &&
+                        task.start <= start &&
+                        task.end >= end &&
+                        is_above(task.y_pos, task.id)
+                    ) {
+                        return id;
+                    }
+                }
+            }
+        });
+        return id;
+    }
 }
 
 function generate_id(task) {
@@ -928,4 +1167,32 @@ function generate_id(task) {
             .toString(36)
             .slice(2, 12)
     );
+}
+
+// takes the root of a tree,
+// 'children' attribute defines children
+// returns iterator that traverses tree in bfs manner
+// note: 'root' may not be in the task_map
+function dfs_iterable(root, task_map) {
+    return {
+        [Symbol.iterator]() {
+            const stack = [root];
+            let n;
+            return {
+                next() {
+                    n = stack.pop();
+                    if (!n) {
+                        return { value: undefined, done: true };
+                    } else {
+                        if (n.children) {
+                            for (const ch of n.children) {
+                                stack.push(task_map[ch]);
+                            }
+                        }
+                        return { value: n, done: false };
+                    }
+                }
+            };
+        }
+    };
 }

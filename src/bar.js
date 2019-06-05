@@ -2,7 +2,8 @@ import date_utils from './date_utils';
 import { $, createSVG, animateSVG } from './svg_utils';
 
 export default class Bar {
-    constructor(gantt, task) {
+    constructor(gantt, task, y_pos) {
+        this.y_pos = y_pos;
         this.set_defaults(gantt, task);
         this.prepare();
         this.draw();
@@ -22,18 +23,24 @@ export default class Bar {
 
     prepare_values() {
         this.invalid = this.task.invalid;
-        this.height = this.gantt.options.bar_height;
+        this.height =
+            this.task.type === 'Initiative'
+                ? this.gantt.options.initiative_bar_height
+                : this.gantt.options.project_bar_height;
         this.x = this.compute_x();
         this.y = this.compute_y();
-        this.corner_radius = this.gantt.options.bar_corner_radius;
+        this.corner_radius =
+            this.task.type === 'Initiative'
+                ? this.gantt.options.initiative_corner_radius
+                : this.gantt.options.project_corner_radius;
         this.duration =
             date_utils.diff(this.task._end, this.task._start, 'hour') /
             this.gantt.options.step;
         this.width = this.gantt.options.column_width * this.duration;
         this.progress_width =
             this.gantt.options.column_width *
-                this.duration *
-                (this.task.progress / 100) || 0;
+            this.duration *
+            (this.task.progress / 100) || 0;
         this.group = createSVG('g', {
             class: 'bar-wrapper ' + (this.task.custom_class || ''),
             'data-id': this.task.id
@@ -49,24 +56,27 @@ export default class Bar {
     }
 
     prepare_helpers() {
-        SVGElement.prototype.getX = function() {
+        SVGElement.prototype.getX = function () {
             return +this.getAttribute('x');
         };
-        SVGElement.prototype.getY = function() {
+        SVGElement.prototype.getY = function () {
             return +this.getAttribute('y');
         };
-        SVGElement.prototype.getWidth = function() {
+        SVGElement.prototype.getWidth = function () {
             return +this.getAttribute('width');
         };
-        SVGElement.prototype.getHeight = function() {
+        SVGElement.prototype.getHeight = function () {
             return +this.getAttribute('height');
         };
-        SVGElement.prototype.getEndX = function() {
+        SVGElement.prototype.getEndX = function () {
             return this.getX() + this.getWidth();
         };
     }
 
     draw() {
+        if (!this.y_pos) {
+            return;
+        }
         this.draw_bar();
         this.draw_progress_bar();
         this.draw_label();
@@ -124,12 +134,12 @@ export default class Bar {
         if (this.invalid) return;
 
         const bar = this.$bar;
-        const handle_width = 8;
+        this.handle_width = Math.max(8, this.corner_radius * 2);
 
         createSVG('rect', {
-            x: bar.getX() + bar.getWidth() - 9,
+            x: bar.getX() + bar.getWidth() - (this.handle_width + 1),
             y: bar.getY() + 1,
-            width: handle_width,
+            width: this.handle_width,
             height: this.height - 2,
             rx: this.corner_radius,
             ry: this.corner_radius,
@@ -140,7 +150,7 @@ export default class Bar {
         createSVG('rect', {
             x: bar.getX() + 1,
             y: bar.getY() + 1,
-            width: handle_width,
+            width: this.handle_width,
             height: this.height - 2,
             rx: this.corner_radius,
             ry: this.corner_radius,
@@ -273,17 +283,14 @@ export default class Bar {
 
     compute_start_end_date() {
         const bar = this.$bar;
-        const x_in_units = bar.getX() / this.gantt.options.column_width;
-        const new_start_date = date_utils.add(
-            this.gantt.gantt_start,
-            x_in_units * this.gantt.options.step,
-            'hour'
-        );
-        const width_in_units = bar.getWidth() / this.gantt.options.column_width;
-        const new_end_date = date_utils.add(
-            new_start_date,
-            width_in_units * this.gantt.options.step,
-            'hour'
+
+        const {
+            start_date: new_start_date,
+            end_date: new_end_date
+        } = date_utils.compute_date_range(
+            bar.getX(),
+            bar.getWidth(),
+            this.gantt
         );
 
         return { new_start_date, new_end_date };
@@ -312,9 +319,10 @@ export default class Bar {
 
     compute_y() {
         return (
-            this.gantt.options.header_height +
-            this.gantt.options.padding +
-            this.task._index * (this.height + this.gantt.options.padding)
+            this.y_pos +
+            (this.task.type === 'Initiative'
+                ? this.gantt.options.initiative_padding
+                : this.gantt.options.padding)
         );
     }
 
@@ -387,7 +395,7 @@ export default class Bar {
             .setAttribute('x', bar.getX() + 1);
         this.handle_group
             .querySelector('.handle.right')
-            .setAttribute('x', bar.getEndX() - 9);
+            .setAttribute('x', bar.getEndX() - (this.handle_width + 1));
         const handle = this.group.querySelector('.handle.progress');
         handle &&
             handle.setAttribute('points', this.get_progress_polygon_points());

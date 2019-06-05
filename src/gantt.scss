@@ -1,7 +1,12 @@
 $bar-color: #b8c2cc !default;
 $bar-stroke: #8D99A6 !default;
+$project-bar-color: #54B3C4 !default;
+$initiative-bar-color: #4F68C1 !default;
+$off-track-bar-color: #F7C233 !default;
+$danger-bar-color: #FA765F !default;
+$objective-bar-color: #48749A !default;
 $border-color: #e0e0e0 !default;
-$light-bg: #f5f5f5 !default;
+$light-bg: #F0F1F4 !default;
 $light-border-color: #ebeff2 !default;
 $light-yellow: #fcf8e3 !default;
 $text-muted: #666 !default;
@@ -9,21 +14,25 @@ $text-light: #555 !default;
 $text-color: #333 !default;
 $blue: #a3a3ff !default;
 $handle-color: #ddd !default;
+$container-height: calc(100vh - 140px);
 
 .gantt {
 	.grid-background {
-		fill: none;
+		fill: $light-bg;
 	}
 	.grid-header {
 		fill: #ffffff;
 		stroke: $border-color;
 		stroke-width: 1.4;
+		filter: url(#row-shadow);
+	}
+	.grid-header-space {
+		fill: $light-bg;
 	}
 	.grid-row {
 		fill: #ffffff;
-	}
-	.grid-row:nth-child(even) {
-		fill: $light-bg;
+		stroke: $light-border-color;
+		filter: url(#row-shadow);
 	}
 	.row-line {
 		stroke: $light-border-color;
@@ -70,7 +79,7 @@ $handle-color: #ddd !default;
 		fill: #fff;
 		dominant-baseline: central;
 		text-anchor: middle;
-		font-size: 12px;
+		font-size: 17px;
 		font-weight: lighter;
 
 		&.big {
@@ -120,6 +129,7 @@ $handle-color: #ddd !default;
 	.lower-text, .upper-text {
 		font-size: 12px;
 		text-anchor: middle;
+		user-select: none;
 	}
 	.upper-text {
 		fill: $text-light;
@@ -131,12 +141,86 @@ $handle-color: #ddd !default;
 	.hide {
 		display: none;
 	}
+
+	.bar-project{
+		.bar {
+			fill: $project-bar-color;
+		}
+		&.bar-wrapper {
+			&:hover {
+				.bar {
+					fill: darken($project-bar-color, 5);
+					border-radius: 12px;
+				}
+			}
+			&.active {
+				.bar {
+					fill: darken($project-bar-color, 5);
+				}
+			}
+		}
+	}
+
+	.bar-initiative{
+		.bar {
+			fill: $initiative-bar-color;
+		}
+		&.bar-wrapper {
+			&:hover {
+				.bar {
+					fill: darken($initiative-bar-color, 5);
+				}
+			}
+			&.active {
+				.bar {
+					fill: darken($initiative-bar-color, 5);
+				}
+			}
+		}
+	}
+
+	.off_track {
+		.bar {
+			fill: $off-track-bar-color;
+		}
+		&.bar-wrapper {
+			&:hover {
+				.bar {
+					fill: darken($off-track-bar-color, 5);
+				}
+			}
+			&.active {
+				.bar {
+					fill: darken($off-track-bar-color, 5);
+				}
+			}
+		}
+	}
+
+	.at_risk {
+		.bar {
+			fill: $danger-bar-color;
+		}
+		&.bar-wrapper {
+			&:hover {
+				.bar {
+					fill: darken($danger-bar-color, 5);
+				}
+			}
+			&.active {
+				.bar {
+					fill: darken($danger-bar-color, 5);
+				}
+			}
+		}
+	}
 }
 
 .gantt-container {
 	position: relative;
 	overflow: auto;
 	font-size: 12px;
+	height: $container-height;
 
 	.popup-wrapper {
 		position: absolute;
@@ -165,4 +249,40 @@ $handle-color: #ddd !default;
 			border-top-color: rgba(0, 0, 0, 0.8);
 		}
 	}
+
+	.new-bar-wrapper {
+		position: absolute;
+		top: 0;
+		left: 0;
+
+		.new-bar {
+			background-color: rgba(0, 0, 0, 0.3);
+			border-radius: 3px;
+			width: 100%;
+			height: 100%;
+
+			&.project {
+				background-color: rgba($project-bar-color, 0.7);
+			}
+
+			&.initiative {
+				background-color: rgba($initiative-bar-color, 0.7);
+			}
+		}
+	}
+
+}
+
+.h-static {
+	pointer-events: none;
+	user-select: none;
+
+	.stream-label {
+		font-size: 17px;
+	}
+}
+
+.v-static {
+	pointer-events: none;
+	user-select: none;
 }
