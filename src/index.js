@@ -102,8 +102,10 @@ export default class Gantt {
                 'Month',
                 'Year'
             ],
-            bar_height: 20,
-            bar_corner_radius: 3,
+            project_bar_height: 24,
+            initiative_bar_height: 48,
+            initiative_corner_radius: 3,
+            project_corner_radius: 12,
             arrow_curve: 5,
             padding: 18,
             stream_padding: 76,
@@ -134,8 +136,13 @@ export default class Gantt {
             y_pos += this.options.padding;
             for (const n of dfs_iterable(stream, this.task_map)) {
                 if (n.id !== stream.id) {
-                    this.task_map[n.id].y_pos = y_pos;
-                    y_pos += this.options.bar_height + this.options.padding;
+                    let task = this.task_map[n.id];
+                    task.y_pos = y_pos;
+                    y_pos +=
+                        (task.type === 'Initiative'
+                            ? this.options.initiative_bar_height
+                            : this.options.project_bar_height) +
+                        this.options.padding;
                 }
             }
             stream.height = y_pos - stream.y_pos;
@@ -483,11 +490,7 @@ export default class Gantt {
             const y = 0;
 
             const width = this.options.column_width;
-            const height =
-                (this.options.bar_height + this.options.padding) *
-                this.tasks.length +
-                this.options.header_height +
-                this.options.padding / 2;
+            const height = this.grid_height;
 
             createSVG('rect', {
                 x,
@@ -878,14 +881,14 @@ export default class Gantt {
                     x: Math.min(x_on_start, e.offsetX),
                     y: y_on_start,
                     width: dx,
-                    height: this.options.bar_height
+                    height: this.options.project_bar_height
                 });
             } else {
                 this.newBar.hide();
             }
             this.newBar.setPosition({
                 width: dx,
-                height: this.options.bar_height
+                height: this.options.project_bar_height
             });
         });
 

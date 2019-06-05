@@ -23,10 +23,16 @@ export default class Bar {
 
     prepare_values() {
         this.invalid = this.task.invalid;
-        this.height = this.gantt.options.bar_height;
+        this.height =
+            this.task.type === 'Initiative'
+                ? this.gantt.options.initiative_bar_height
+                : this.gantt.options.project_bar_height;
         this.x = this.compute_x();
         this.y = this.compute_y();
-        this.corner_radius = this.gantt.options.bar_corner_radius;
+        this.corner_radius =
+            this.task.type === 'Initiative'
+                ? this.gantt.options.initiative_corner_radius
+                : this.gantt.options.project_corner_radius;
         this.duration =
             date_utils.diff(this.task._end, this.task._start, 'hour') /
             this.gantt.options.step;
@@ -68,6 +74,9 @@ export default class Bar {
     }
 
     draw() {
+        if (!this.y_pos) {
+            return;
+        }
         this.draw_bar();
         this.draw_progress_bar();
         this.draw_label();
@@ -125,12 +134,12 @@ export default class Bar {
         if (this.invalid) return;
 
         const bar = this.$bar;
-        const handle_width = 8;
+        this.handle_width = Math.max(8, this.corner_radius * 2);
 
         createSVG('rect', {
-            x: bar.getX() + bar.getWidth() - 9,
+            x: bar.getX() + bar.getWidth() - (this.handle_width + 1),
             y: bar.getY() + 1,
-            width: handle_width,
+            width: this.handle_width,
             height: this.height - 2,
             rx: this.corner_radius,
             ry: this.corner_radius,
@@ -141,7 +150,7 @@ export default class Bar {
         createSVG('rect', {
             x: bar.getX() + 1,
             y: bar.getY() + 1,
-            width: handle_width,
+            width: this.handle_width,
             height: this.height - 2,
             rx: this.corner_radius,
             ry: this.corner_radius,
@@ -381,7 +390,7 @@ export default class Bar {
             .setAttribute('x', bar.getX() + 1);
         this.handle_group
             .querySelector('.handle.right')
-            .setAttribute('x', bar.getEndX() - 9);
+            .setAttribute('x', bar.getEndX() - (this.handle_width + 1));
         const handle = this.group.querySelector('.handle.progress');
         handle &&
             handle.setAttribute('points', this.get_progress_polygon_points());

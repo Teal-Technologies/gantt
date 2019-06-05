@@ -27,5 +27,11 @@ export default class GhostBar {
 
     hide() {
         this.parent.style.opacity = 0;
+        this.setPosition({
+            width: 0,
+            height: 0,
+            x: 0,
+            y: 0
+        });
     }
 }
