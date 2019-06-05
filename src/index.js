@@ -107,7 +107,10 @@ export default class Gantt {
             initiative_corner_radius: 3,
             project_corner_radius: 12,
             arrow_curve: 5,
-            padding: 18,
+            initiative_padding: 20,
+            stream_bottom_padding: 20,
+            stream_top_padding: 5,
+            padding: 5,
             stream_padding: 76,
             view_mode: 'Day',
             date_format: 'YYYY-MM-DD',
@@ -133,18 +136,18 @@ export default class Gantt {
         this.streams = streams;
         this.streams.forEach(stream => {
             stream.y_pos = y_pos;
-            y_pos += this.options.padding;
+            y_pos += this.options.stream_top_padding;
             for (const n of dfs_iterable(stream, this.task_map)) {
                 if (n.id !== stream.id) {
                     let task = this.task_map[n.id];
                     task.y_pos = y_pos;
                     y_pos +=
-                        (task.type === 'Initiative'
-                            ? this.options.initiative_bar_height
-                            : this.options.project_bar_height) +
-                        this.options.padding;
+                        task.type === 'Initiative'
+                            ? this.options.initiative_bar_height + this.options.initiative_padding
+                            : this.options.project_bar_height + this.options.padding;
                 }
             }
+            y_pos += this.options.stream_bottom_padding;
             stream.height = y_pos - stream.y_pos;
             y_pos += this.options.stream_padding;
         });
@@ -747,8 +750,8 @@ export default class Gantt {
             parent_bar_id = bar_wrapper.getAttribute('data-id');
             const ids = [
                 parent_bar_id,
-                ...this.get_all_dependent_tasks(parent_bar_id)
-                // ...this.get_all_child_tasks(parent_bar_id)
+                ...this.get_all_dependent_tasks(parent_bar_id),
+                ...this.get_all_child_tasks(parent_bar_id)
             ];
             bars = ids.map(id => this.get_bar(id));
 

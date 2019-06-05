@@ -318,7 +318,12 @@ export default class Bar {
     }
 
     compute_y() {
-        return this.y_pos;
+        return (
+            this.y_pos +
+            (this.task.type === 'Initiative'
+                ? this.gantt.options.initiative_padding
+                : this.gantt.options.padding)
+        );
     }
 
     get_snap_position(dx) {
