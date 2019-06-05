@@ -26,7 +26,7 @@ export default class Stream {
     draw_label() {
         createSVG('text', {
             x: this.x,
-            y: this.y - this.height / 2,
+            y: this.y + this.height,
             innerHTML: this.group.name,
             class: 'stream-label',
             append_to: this.g_elem

@@ -91,7 +91,7 @@ export default class Gantt {
         const default_options = {
             header_height: 50,
             header_spacing: 20,
-            stream_header_height: 20,
+            stream_header_height: 25,
             column_width: 30,
             step: 24,
             view_modes: [
@@ -102,14 +102,13 @@ export default class Gantt {
                 'Month',
                 'Year'
             ],
-            project_bar_height: 24,
-            initiative_bar_height: 48,
+            project_bar_height: 26,
+            initiative_bar_height: 35,
             initiative_corner_radius: 3,
-            project_corner_radius: 12,
+            project_corner_radius: 13,
             arrow_curve: 5,
             initiative_padding: 20,
             stream_bottom_padding: 20,
-            stream_top_padding: 5,
             padding: 5,
             stream_padding: 76,
             view_mode: 'Day',
@@ -136,7 +135,7 @@ export default class Gantt {
         this.streams = streams;
         this.streams.forEach(stream => {
             stream.y_pos = y_pos;
-            y_pos += this.options.stream_top_padding;
+            y_pos += this.options.stream_header_height;
             for (const n of dfs_iterable(stream, this.task_map)) {
                 if (n.id !== stream.id) {
                     let task = this.task_map[n.id];
@@ -689,7 +688,12 @@ export default class Gantt {
         const parent_element = this.$svg.parentElement;
         if (!parent_element) return;
 
-        const date_position = this.scroll_date_position || date_utils.today();
+        let date_position = this.scroll_date_position;
+
+        if (!date_position) {
+            date_position = date_utils.add(date_utils.today(), -2, 'month');
+            this.scroll_date_position = date_position;
+        }
 
         const hours_before_first_task = date_utils.diff(
             date_position,

@@ -2,6 +2,8 @@ $bar-color: #b8c2cc !default;
 $bar-stroke: #8D99A6 !default;
 $project-bar-color: #54B3C4 !default;
 $initiative-bar-color: #4F68C1 !default;
+$off-track-bar-color: #F7C233 !default;
+$danger-bar-color: #FA765F !default;
 $objective-bar-color: #48749A !default;
 $border-color: #e0e0e0 !default;
 $light-bg: #F0F1F4 !default;
@@ -12,7 +14,7 @@ $text-light: #555 !default;
 $text-color: #333 !default;
 $blue: #a3a3ff !default;
 $handle-color: #ddd !default;
-$container-height: 40rem;
+$container-height: calc(100vh - 140px);
 
 .gantt {
 	.grid-background {
@@ -77,7 +79,7 @@ $container-height: 40rem;
 		fill: #fff;
 		dominant-baseline: central;
 		text-anchor: middle;
-		font-size: 12px;
+		font-size: 17px;
 		font-weight: lighter;
 
 		&.big {
@@ -150,29 +152,16 @@ $container-height: 40rem;
 					fill: darken($project-bar-color, 5);
 					border-radius: 12px;
 				}
-
-				.bar-progress {
-					fill: darken($blue, 5);
-				}
-
 			}
 			&.active {
 				.bar {
 					fill: darken($project-bar-color, 5);
-				}
-
-				.bar-progress {
-					fill: darken($blue, 5);
 				}
 			}
 		}
 	}
 
 	.bar-initiative{
-		.bar-label {
-			font-size: 19px;
-		}
-
 		.bar {
 			fill: $initiative-bar-color;
 		}
@@ -181,19 +170,46 @@ $container-height: 40rem;
 				.bar {
 					fill: darken($initiative-bar-color, 5);
 				}
-
-				.bar-progress {
-					fill: darken($blue, 5);
-				}
-
 			}
 			&.active {
 				.bar {
 					fill: darken($initiative-bar-color, 5);
 				}
+			}
+		}
+	}
 
-				.bar-progress {
-					fill: darken($blue, 5);
+	.off_track {
+		.bar {
+			fill: $off-track-bar-color;
+		}
+		&.bar-wrapper {
+			&:hover {
+				.bar {
+					fill: darken($off-track-bar-color, 5);
+				}
+			}
+			&.active {
+				.bar {
+					fill: darken($off-track-bar-color, 5);
+				}
+			}
+		}
+	}
+
+	.at_risk {
+		.bar {
+			fill: $danger-bar-color;
+		}
+		&.bar-wrapper {
+			&:hover {
+				.bar {
+					fill: darken($danger-bar-color, 5);
+				}
+			}
+			&.active {
+				.bar {
+					fill: darken($danger-bar-color, 5);
 				}
 			}
 		}
@@ -252,6 +268,10 @@ $container-height: 40rem;
 .h-static {
 	pointer-events: none;
 	user-select: none;
+
+	.stream-label {
+		font-size: 17px;
+	}
 }
 
 .v-static {
