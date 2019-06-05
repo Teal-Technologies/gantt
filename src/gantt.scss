@@ -4,7 +4,7 @@ $project-bar-color: #54B3C4 !default;
 $initiative-bar-color: #4F68C1 !default;
 $objective-bar-color: #48749A !default;
 $border-color: #e0e0e0 !default;
-$light-bg: #f5f5f5 !default;
+$light-bg: #F0F1F4 !default;
 $light-border-color: #ebeff2 !default;
 $light-yellow: #fcf8e3 !default;
 $text-muted: #666 !default;
@@ -16,18 +16,21 @@ $container-height: 40rem;
 
 .gantt {
 	.grid-background {
-		fill: none;
+		fill: $light-bg;
 	}
 	.grid-header {
 		fill: #ffffff;
 		stroke: $border-color;
 		stroke-width: 1.4;
+		filter: url(#row-shadow);
+	}
+	.grid-header-space {
+		fill: $light-bg;
 	}
 	.grid-row {
 		fill: #ffffff;
-	}
-	.grid-row:nth-child(even) {
-		fill: $light-bg;
+		stroke: $light-border-color;
+		filter: url(#row-shadow);
 	}
 	.row-line {
 		stroke: $light-border-color;
@@ -141,9 +144,6 @@ $container-height: 40rem;
 		.bar {
 			fill: $project-bar-color;
 		}
-		.bar-progress {
-			fill: $blue;
-		}
 		&.bar-wrapper {
 			&:hover {
 				.bar {
@@ -171,9 +171,6 @@ $container-height: 40rem;
 		.bar {
 			fill: $initiative-bar-color;
 		}
-		.bar-progress {
-			fill: $blue;
-		}
 		&.bar-wrapper {
 			&:hover {
 				.bar {
@@ -197,34 +194,12 @@ $container-height: 40rem;
 		}
 	}
 
-	.bar-objective{
-		.bar {
-			fill: $objective-bar-color;
-		}
-		.bar-progress {
-			fill: $blue;
-		}
-		&.bar-wrapper {
-			&:hover {
-				.bar {
-					fill: darken($objective-bar-color, 5);
-				}
-
-				.bar-progress {
-					fill: darken($blue, 5);
-				}
-
-			}
-			&.active {
-				.bar {
-					fill: darken($objective-bar-color, 5);
-				}
-
-				.bar-progress {
-					fill: darken($blue, 5);
-				}
-			}
-		}
+	.stream-label {
+		// fill: #fff;
+		// dominant-baseline: central;
+		// text-anchor: middle;
+		// font-size: 12px;
+		// font-weight: lighter;
 	}
 }
 

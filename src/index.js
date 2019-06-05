@@ -11,6 +11,7 @@ import Stream from './stream';
 export default class Gantt {
     constructor(wrapper, tasks, streams, options) {
         this.setup_wrapper(wrapper);
+        this.setup_defs();
         this.setup_options(options);
         this.setup_streams(streams, tasks);
         // initialize with default view mode
@@ -70,10 +71,27 @@ export default class Gantt {
         this.$container.appendChild(this.ghost_wrapper);
     }
 
+    setup_defs() {
+        this.defs = createSVG('defs');
+        const shadow_filter = createSVG('filter', {
+            append_to: this.defs,
+            id: 'row-shadow'
+        });
+        createSVG('feDropShadow', {
+            append_to: shadow_filter,
+            dx: 0,
+            dy: 3,
+            stdDeviation: 10,
+            // ['flood-color']: '',
+            ['flood-opacity']: 0.06
+        });
+    }
+
     setup_options(options) {
         const default_options = {
             header_height: 50,
-            group_header_height: 20,
+            header_spacing: 20,
+            stream_header_height: 20,
             column_width: 30,
             step: 24,
             view_modes: [
@@ -88,7 +106,7 @@ export default class Gantt {
             bar_corner_radius: 3,
             arrow_curve: 5,
             padding: 18,
-            group_padding: 18,
+            stream_padding: 76,
             view_mode: 'Day',
             date_format: 'YYYY-MM-DD',
             popup_trigger: 'click',
@@ -98,52 +116,33 @@ export default class Gantt {
         this.options = Object.assign({}, default_options, options);
     }
 
-    calculate_group_header_height() {
-        return (
-            this.options.group_padding +
-            this.options.group_header_height +
-            this.options.padding
-        );
-    }
-
-    // if calculating group_start, don't add header and padding
-    calculate_y_pos(group_count, task_count, is_stream_top) {
-        group_count += is_stream_top ? 0 : 1;
-        return (
-            this.options.header_height +
-            this.options.group_padding +
-            task_count * (this.options.bar_height + this.options.padding) +
-            group_count * this.calculate_group_header_height()
-        );
-    }
-
     setup_streams(streams, tasks) {
         this.task_map = {};
         tasks.forEach(t => {
             this.task_map[t.id] = t;
         });
-        // prepare groups
-        let total_tasks = 0;
-        this.streams = streams.map((stream, stream_number) => {
-            stream.y_pos = this.calculate_y_pos(
-                stream_number,
-                total_tasks,
-                true
-            );
-            stream.size = 0;
+        // calculate height, y_positioning of each item
+
+        let y_pos =
+            this.options.header_height +
+            this.options.header_spacing +
+            this.options.stream_header_height;
+
+        this.streams = streams;
+        this.streams.forEach(stream => {
+            stream.y_pos = y_pos;
+            y_pos += this.options.padding;
             for (const n of dfs_iterable(stream, this.task_map)) {
                 if (n.id !== stream.id) {
-                    const task_number = total_tasks + stream.size;
-                    this.task_map[n.id].y_pos = this.calculate_y_pos(
-                        stream_number,
-                        task_number
-                    );
-                    stream.size++;
+                    this.task_map[n.id].y_pos = y_pos;
+                    y_pos += this.options.bar_height + this.options.padding;
                 }
             }
-            total_tasks += stream.size;
-            return stream;
+            stream.height = y_pos - stream.y_pos;
+            y_pos += this.options.stream_padding;
         });
+
+        this.grid_height = y_pos;
 
         this.setup_tasks(tasks);
     }
@@ -348,6 +347,8 @@ export default class Gantt {
     }
 
     setup_layers() {
+        // append defs
+        this.$svg.appendChild(this.defs);
         this.layers = {};
         const layers = [
             'grid',
@@ -377,11 +378,7 @@ export default class Gantt {
 
     make_grid_background() {
         const grid_width = this.dates.length * this.options.column_width;
-        const grid_height = this.calculate_y_pos(
-            this.streams.length + 1,
-            this.tasks.length,
-            true
-        );
+        const grid_height = this.grid_height;
 
         createSVG('rect', {
             x: 0,
@@ -392,56 +389,30 @@ export default class Gantt {
             append_to: this.layers.grid
         });
 
-        // FIXME: Height is being calculated incorrectly!
         $.attr(this.$svg, {
-            height: grid_height + this.options.padding + 100 + 300,
+            height: grid_height,
             width: '100%'
         });
     }
 
     make_grid_rows() {
         const rows_layer = createSVG('g', { append_to: this.layers.grid });
-        const lines_layer = createSVG('g', { append_to: this.layers.grid });
-
         const row_width = this.dates.length * this.options.column_width;
-        const bar_row_height = this.options.bar_height + this.options.padding;
-        const group_header_height = this.calculate_group_header_height();
-
-        let row_y = this.options.header_height + this.options.group_padding / 2;
-
-        // TODO: Add group name, make object?
-        const create_row = row_count => {
-            const custom_row_height =
-                bar_row_height * row_count + group_header_height;
+        this.streams.forEach(stream => {
             createSVG('rect', {
                 x: 0,
-                y: row_y,
+                y: stream.y_pos,
                 width: row_width,
-                height: custom_row_height,
+                height: stream.height,
                 class: 'grid-row',
                 append_to: rows_layer
             });
-
-            createSVG('line', {
-                x1: 0,
-                y1: row_y + custom_row_height,
-                x2: row_width,
-                y2: row_y + custom_row_height,
-                class: 'row-line',
-                append_to: lines_layer
-            });
-
-            row_y += custom_row_height;
-        };
-
-        this.streams.forEach(group => {
-            create_row(group.size);
         });
     }
 
     make_grid_header() {
         const header_width = this.dates.length * this.options.column_width;
-        const header_height = this.options.header_height + 10;
+        const header_height = this.options.header_height;
         this.date_header = createSVG('g', { append_to: this.layers['v-static'] });
         createSVG('rect', {
             x: 0,
@@ -451,14 +422,20 @@ export default class Gantt {
             class: 'grid-header',
             append_to: this.date_header
         });
+        createSVG('rect', {
+            x: 0,
+            y: header_height,
+            width: header_width,
+            height: this.options.header_spacing,
+            class: 'grid-header-space',
+            append_to: this.date_header
+        });
     }
 
     make_grid_ticks() {
         let tick_x = 0;
         let tick_y = this.options.header_height + this.options.padding / 2;
-        let tick_height =
-            (this.options.bar_height + this.options.padding) *
-            this.tasks.length;
+        let tick_height = this.grid_height;
 
         for (let date of this.dates) {
             let tick_class = 'tick';
@@ -617,8 +594,8 @@ export default class Gantt {
 
         const base_pos = {
             x: i * this.options.column_width,
-            lower_y: this.options.header_height,
-            upper_y: this.options.header_height - 25
+            lower_y: this.options.header_height - 10,
+            upper_y: this.options.header_height - 35
         };
 
         const x_pos = {
@@ -706,8 +683,7 @@ export default class Gantt {
         const parent_element = this.$svg.parentElement;
         if (!parent_element) return;
 
-        const date_position =
-            this.scroll_date_position || this.get_oldest_starting_date;
+        const date_position = this.scroll_date_position || date_utils.today();
 
         const hours_before_first_task = date_utils.diff(
             date_position,

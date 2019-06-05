@@ -12,9 +12,7 @@ export default class Stream {
 
     prepare() {
         this.x = 50;
-        this.height =
-            this.gantt.options.group_header_height +
-            this.gantt.options.group_padding;
+        this.height = this.gantt.options.stream_header_height;
         this.g_elem = createSVG('g', {
             class: 'stream-label-group',
             'data-id': this.group.id
@@ -28,7 +26,7 @@ export default class Stream {
     draw_label() {
         createSVG('text', {
             x: this.x,
-            y: this.y + this.height / 2,
+            y: this.y - this.height / 2,
             innerHTML: this.group.name,
             class: 'stream-label',
             append_to: this.g_elem
