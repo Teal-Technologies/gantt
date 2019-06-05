@@ -260,6 +260,14 @@ $container-height: calc(100vh - 140px);
 			border-radius: 3px;
 			width: 100%;
 			height: 100%;
+
+			&.project {
+				background-color: rgba($project-bar-color, 0.7);
+			}
+
+			&.initiative {
+				background-color: rgba($initiative-bar-color, 0.7);
+			}
 		}
 	}
 

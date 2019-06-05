@@ -13,10 +13,27 @@ export default class GhostBar {
     }
 
     setPosition(options) {
-        options.x && (this.parent.style.left = options.x + 'px');
-        options.width && (this.parent.style.width = options.width + 'px');
-        options.y && (this.parent.style.top = options.y + 'px');
-        options.height && (this.parent.style.height = options.height + 'px');
+        options.x !== undefined && (this.parent.style.left = options.x + 'px');
+        options.width !== undefined &&
+            (this.parent.style.width = options.width + 'px');
+        options.y !== undefined && (this.parent.style.top = options.y + 'px');
+        options.height !== undefined &&
+            (this.parent.style.height = options.height + 'px');
+
+        let rx = 3;
+        if (this.className) {
+            this.bar.className = 'new-bar ' + this.className;
+            if (this.className === 'project') {
+                rx = options.height / 2;
+            }
+        } else {
+            this.bar.className = 'new-bar';
+        }
+        this.bar.style['border-radius'] = rx + 'px';
+    }
+
+    setBarTypeState(className) {
+        this.className = className;
     }
 
     show(options) {

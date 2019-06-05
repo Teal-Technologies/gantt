@@ -122,6 +122,7 @@ export default class Gantt {
 
     setup_streams(streams, tasks) {
         this.task_map = {};
+        this.stream_map = {};
         tasks.forEach(t => {
             this.task_map[t.id] = t;
         });
@@ -149,6 +150,7 @@ export default class Gantt {
             y_pos += this.options.stream_bottom_padding;
             stream.height = y_pos - stream.y_pos;
             y_pos += this.options.stream_padding;
+            this.stream_map[stream.id] = stream;
         });
 
         this.grid_height = y_pos;
@@ -832,7 +834,7 @@ export default class Gantt {
         let y_on_start = 0;
         // Only update these based on mouse move events on svg (otherwise offsetX is incorrect)
         let dx = 0;
-        let start_x = 0;
+        let earliest_x = 0;
 
         const add_complete = e => {
             if (is_adding_new) {
@@ -848,11 +850,18 @@ export default class Gantt {
                 const {
                     start_date: new_start_date,
                     end_date: new_end_date
-                } = date_utils.compute_date_range(start_x, dx, this);
+                } = date_utils.compute_date_range(earliest_x, dx, this);
+
+                const parentId = this.get_parent_item_id(
+                    y_on_start,
+                    new_start_date,
+                    new_end_date
+                );
 
                 this.trigger_event('new_task', [
                     new_start_date,
-                    date_utils.add(new_end_date, -1, 'second')
+                    date_utils.add(new_end_date, -1, 'second'),
+                    parentId
                 ]);
             }
         };
@@ -862,7 +871,7 @@ export default class Gantt {
             x_on_start = e.offsetX;
             y_on_start = e.offsetY;
             dx = 0;
-            start_x = 0;
+            earliest_x = 0;
 
             if (!this.newBar) {
                 this.newBar = new GhostBar(this.ghost_wrapper);
@@ -882,21 +891,36 @@ export default class Gantt {
         $.on(this.$svg, 'mousemove', e => {
             if (!is_adding_new) return;
             dx = Math.abs(e.offsetX - x_on_start);
-            start_x = Math.min(e.offsetX, x_on_start);
+            earliest_x = Math.min(e.offsetX, x_on_start);
             if (dx > 10) {
+                const { start_date, end_date } = date_utils.compute_date_range(
+                    earliest_x,
+                    dx,
+                    this
+                );
+                const parentId = this.get_parent_item_id(
+                    y_on_start,
+                    start_date,
+                    end_date
+                );
+                let new_bar_height = this.options.project_bar_height;
+                if (this.stream_map[parentId]) {
+                    this.newBar.setBarTypeState('initiative');
+                    new_bar_height = this.options.initiative_bar_height;
+                } else if (this.task_map[parentId]) {
+                    this.newBar.setBarTypeState('project');
+                } else {
+                    this.newBar.setBarTypeState();
+                }
                 this.newBar.show({
                     x: Math.min(x_on_start, e.offsetX),
                     y: y_on_start,
                     width: dx,
-                    height: this.options.project_bar_height
+                    height: new_bar_height
                 });
             } else {
                 this.newBar.hide();
             }
-            this.newBar.setPosition({
-                width: dx,
-                height: this.options.project_bar_height
-            });
         });
 
         document.addEventListener('mouseup', e => {
@@ -1101,6 +1125,37 @@ export default class Gantt {
      */
     clear() {
         this.$svg.innerHTML = '';
+    }
+
+    get_parent_item_id(y_pos, start, end) {
+        let id = undefined;
+        const is_above = (test_y, test_id) => {
+            if (test_y > y_pos) {
+                return true;
+            } else {
+                id = test_id;
+                return false;
+            }
+        };
+        this.streams.forEach(stream => {
+            if (is_above(stream.y_pos, stream.id)) {
+                return id;
+            }
+            for (const n of dfs_iterable(stream, this.task_map)) {
+                if (n.id !== stream.id) {
+                    let task = this.task_map[n.id];
+                    if (
+                        task.type === 'Initiative' &&
+                        task.start <= start &&
+                        task.end >= end &&
+                        is_above(task.y_pos, task.id)
+                    ) {
+                        return id;
+                    }
+                }
+            }
+        });
+        return id;
     }
 }
 
